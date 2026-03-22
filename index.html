@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>株式会社dTosh - AI活用診断</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ============================================================
+   DESIGN TOKENS & BASE (既存のスタイル)
+   ============================================================ */
+:root {
+  --blue-900: #1e3a8a; --blue-800: #1d4ed8; --blue-100: #dbeafe; --blue-50: #eff6ff;
+  --teal-700: #0f766e; --teal-600: #0d9488; --teal-100: #ccfbf1; --teal-50: #f0fdfa;
+  --slate-900: #0f172a; --slate-800: #1e293b; --slate-700: #334155; --slate-600: #475569;
+  --slate-500: #64748b; --slate-400: #94a3b8; --slate-300: #cbd5e1; --slate-200: #e2e8f0;
+  --slate-100: #f1f5f9; --slate-50: #f8fafc;
+  --amber-700: #b45309; --amber-600: #d97706; --amber-100: #fef3c7; --amber-50: #fffbeb;
+  --green-700: #15803d; --green-600: #16a34a; --green-100: #dcfce7; --green-50: #f0fdf4;
+  --red-700: #b91c1c; --red-600: #dc2626; --red-50: #fef2f2;
+  --surface: #ffffff; --surface-muted: var(--slate-50); --border: var(--slate-200);
+  --text-primary: var(--slate-900); --text-secondary: var(--slate-700); --text-muted: #334155;
+  --shadow-sm: 0 2px 8px 0 rgba(0,0,0,0.07);
+  --shadow-md: 0 4px 16px 0 rgba(0,0,0,0.09);
+  --shadow-lg: 0 10px 30px 0 rgba(0,0,0,0.10);
+  /* セマンティックカラー */
+  --c-primary:     #1a2f6b;
+  --c-primary-mid: #2b4eae;
+  --c-danger:      #c0392b;
+  --c-warning:     #e07b00;
+  --c-success:     #1f7a4d;
+  --c-neutral:     #5a6475;
+  --c-bg-callout:  #eef2ff;
+  /* スペーシング */
+  --sp-xs: 0.5rem; --sp-sm: 1rem; --sp-md: 1.5rem; --sp-lg: 2.5rem; --sp-xl: 5rem;
+}
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; font-size: 100%; }
+body { background: var(--surface-muted); color: var(--text-primary); font-family: 'Noto Sans JP', sans-serif; font-size: 1.125rem; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+
+/* ============================================================
+   フォーカスリング（WCAG 2.4.7 / 2.4.11）
+   ============================================================ */
+:focus { outline: none; }
+:focus-visible {
+  outline: 3px solid var(--blue-800);
+  outline-offset: 2px;
+  border-radius: 0.125rem;
+  box-shadow: 0 0 0 5px rgba(29,78,216,0.25);
+}
+
+/* ============================================================
+   APP SCREENS (SPA制御用)
+   ============================================================ */
+.screen { display: none; opacity: 0; transition: opacity 0.5s ease; min-height: 100vh; }
+.screen.active { display: block; opacity: 1; }
+
+/* --- 入力フォーム画面 --- */
+.form-container { max-width: 37.5rem; margin: 6.25rem auto; background: var(--surface); padding: 3rem; border-radius: 0.75rem; box-shadow: var(--shadow-lg); }
+.form-title { font-size: 1.5rem; font-weight: 700; color: var(--blue-900); margin-bottom: 0.75rem; text-align: center; }
+.form-desc { font-size: 0.9375rem; color: var(--text-muted); margin-bottom: 2rem; text-align: center; line-height: 1.6; }
+.form-group { margin-bottom: 1.5rem; }
+.form-label { display: block; font-size: 0.875rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-primary); }
+.form-input, .form-textarea { width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--border); border-radius: 0.5rem; font-size: 1rem; font-family: inherit; transition: border-color 0.2s; }
+.form-input:focus-visible, .form-textarea:focus-visible { outline: 3px solid var(--blue-800); outline-offset: 2px; border-color: var(--blue-800); }
+.form-textarea { height: 9rem; resize: vertical; }
+.btn-submit { width: 100%; background: var(--blue-900); color: #fff; border: 2px solid transparent; padding: 1rem; border-radius: 0.5rem; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background 0.2s; }
+.btn-submit:hover { background: var(--blue-800); }
+.btn-submit:focus-visible { outline: 3px solid var(--blue-800); outline-offset: 3px; box-shadow: 0 0 0 5px rgba(29,78,216,0.25); }
+/* disabled: 形状・材質感で「押せない」ことを明示（WCAG 1.4.3: コントラスト比4.5:1確保） */
+.btn-submit:disabled { background: var(--slate-100); color: var(--slate-600); border: 2px dashed var(--slate-400); cursor: not-allowed; }
+
+/* --- ローディング画面 --- */
+.loading-container {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 100vh; background: #f8fafc; color: #1e3a8a;
+  text-align: center; padding: clamp(2rem, 8vw, 4rem) 1.5rem;
+}
+.loading-title { font-size: clamp(1.25rem, 3vw, 1.75rem); font-weight: 700; color: #1e3a8a; margin-bottom: 2rem; }
+.loading-company { font-size: 1rem; font-weight: 600; color: #334155; margin-bottom: 2rem; min-height: 1.5rem; }
+.loading-progress-wrap {
+  width: 100%; max-width: 24rem;
+  background: #e2e8f0; border-radius: 100px; height: 0.5rem;
+  overflow: hidden; margin-bottom: 0.75rem;
+}
+.loading-progress-fill {
+  height: 100%; width: 0%; background: #1d4ed8;
+  border-radius: 100px; transition: width 0.8s ease;
+}
+.loading-timeline {
+  display: flex; justify-content: space-between;
+  width: 100%; max-width: 24rem; margin-bottom: 1.5rem;
+}
+.lt-item { display: flex; flex-direction: column; align-items: center; gap: 0.375rem; flex: 1; }
+.lt-dot { width: 0.625rem; height: 0.625rem; border-radius: 50%; transition: background 0.4s, box-shadow 0.4s; }
+.lt-dot.wait   { background: #cbd5e1; }
+.lt-dot.active { background: #1d4ed8; box-shadow: 0 0 0 4px rgba(29,78,216,0.18); }
+.lt-dot.done   { background: #1d4ed8; }
+.lt-label { font-size: 0.6875rem; color: #64748b; text-align: center; line-height: 1.3; transition: color 0.4s, font-weight 0.4s; }
+.lt-label.active { color: #1d4ed8; font-weight: 700; }
+.lt-label.done   { color: #334155; }
+.loading-status-text { font-size: 0.9375rem; color: #334155; font-weight: 500; min-height: 1.5rem; margin-bottom: 0.75rem; }
+.loading-eta { font-size: 0.8125rem; color: #64748b; margin-bottom: 2rem; }
+.loading-eta span { color: #1e3a8a; font-weight: 700; }
+.loading-note { font-size: 0.8125rem; color: #475569; max-width: 32rem; line-height: 1.6; border-top: 1px solid #e2e8f0; padding-top: 1.25rem; white-space: nowrap; }
+
+/* ============================================================
+   以下、元のダッシュボード用CSS（省略せずに記述）
+   ============================================================ */
+.header { position: sticky; top: 0; z-index: 100; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 clamp(1rem, 4vw, 3rem); height: 4.25rem; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm); }
+.header-logo { display: flex; align-items: center; gap: 0.875rem; }
+.logo-mark { width: 2.5rem; height: 2.5rem; background: var(--blue-900); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; font-size: 0.9375rem; font-weight: 700; color: #ffffff; flex-shrink: 0; }
+.logo-text { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+.logo-sub { font-size: 0.875rem; color: var(--text-muted); margin-top: 0.0625rem; }
+.header-meta { display: flex; align-items: center; gap: 1.25rem; }
+.confidential-badge { display: inline-flex; align-items: center; gap: 0.375rem; background: var(--slate-100); color: var(--slate-700); padding: 0.375rem 0.875rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.06em; }
+.header-date { color: var(--text-muted); font-size: 0.875rem; }
+.hero { background: var(--blue-900); padding: clamp(2rem, 5vw, 3.5rem) clamp(1rem, 4vw, 3rem) clamp(2rem, 4vw, 3.25rem); position: relative; overflow: hidden; }
+.hero-eyebrow { display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.12); color: #ffffff; padding: 0.375rem 1rem; border-radius: 0.25rem; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.08em; margin-bottom: 1.25rem; }
+.hero-company { font-size: 1rem; font-weight: 600; color: rgba(255,255,255,0.92); margin-bottom: 0.375rem; }
+.hero-title { font-size: clamp(1.75rem, 4vw, 2.625rem); font-weight: 900; color: #ffffff; line-height: 1.2; margin-bottom: 1.125rem; letter-spacing: -0.01em; }
+.hero-subtitle { font-size: 1rem; color: #ffffff; max-width: 38.75rem; line-height: 1.6; margin-bottom: 2.75rem; }
+.hero-kpis { display: flex; gap: 0; border-radius: 0.625rem; overflow: hidden; width: fit-content; background: rgba(255,255,255,0.10); }
+.hero-kpi { padding: 1.25rem 2.25rem; border-right: 1px solid rgba(255,255,255,0.18); }
+.hero-kpi:last-child { border-right: none; }
+.kpi-value { font-size: 2rem; font-weight: 700; color: #ffffff; line-height: 1; margin-bottom: 0.375rem; }
+.kpi-label { font-size: 0.875rem; color: #ffffff; line-height: 1.5; }
+.exec-summary { background: var(--surface); border-bottom: 3px solid var(--blue-900); padding: clamp(1.5rem, 4vw, 3rem); }
+.exec-summary-inner { max-width: 80rem; margin: 0 auto; }
+.exec-summary-label { font-size: 0.875rem; font-weight: 700; color: var(--blue-900); letter-spacing: 0.1em; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; }
+.exec-summary-label::before { content: ''; display: block; width: 1.25rem; height: 3px; background: var(--blue-900); border-radius: 2px; }
+.exec-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(17.5rem, 1fr)); gap: 1.5rem; }
+.exec-card { background: var(--slate-50); border-radius: 0.625rem; padding: 1.75rem 2rem; box-shadow: var(--shadow-sm); }
+.exec-card-num { font-size: 0.875rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.1em; margin-bottom: 0.5rem; }
+.exec-card-heading { font-size: 1.0625rem; font-weight: 700; color: var(--blue-900); margin-bottom: 0.625rem; line-height: 1.35; }
+.exec-card-body { font-size: 1.125rem; font-weight: 700; color: var(--text-primary); line-height: 1.6; }
+.exec-card-body .highlight { color: var(--blue-900); font-size: 1.625rem; }
+.exec-card-body .highlight-amber { color: var(--amber-700); font-size: 1.375rem; }
+.exec-card-body .highlight-green { color: var(--green-700); font-size: 1.25rem; }
+.main { max-width: 80rem; margin: 0 auto; padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 4vw, 3rem) 5rem; }
+.section { margin-bottom: 6rem; opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+.section.visible { opacity: 1; transform: translateY(0); }
+.section-header { display: flex; align-items: flex-start; gap: 1.25rem; margin-bottom: 2rem; padding-bottom: 1.375rem; border-bottom: 2px solid var(--border); }
+.section-num { font-size: 0.875rem; font-weight: 700; color: var(--blue-900); background: var(--blue-50); padding: 0.25rem 0.75rem; border-radius: 0.25rem; letter-spacing: 0.05em; margin-top: 0.1875rem; flex-shrink: 0; }
+.section-title-wrap { flex: 1; }
+.section-tag { display: inline-block; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.06em; padding: 0.25rem 0.75rem; border-radius: 0.25rem; margin-bottom: 0.5rem; }
+.tag-problem { background: var(--amber-50); color: var(--amber-700); }
+.tag-analysis { background: var(--teal-50); color: var(--teal-700); }
+.tag-priority { background: var(--green-50); color: var(--green-700); }
+.tag-network { background: var(--blue-50); color: var(--blue-900); }
+.tag-solution { background: var(--teal-50); color: var(--teal-700); }
+.tag-trend { background: var(--slate-100); color: var(--slate-700); }
+.tag-action { background: var(--blue-50); color: var(--blue-900); }
+.section-title { font-size: 1.75rem; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
+.divider { height: 1px; background: var(--border); margin: 0 0 6rem; }
+.flex { display: flex; } .flex-col { flex-direction: column; } .gap-16 { gap: 1rem; }
+.problems-intro { background: var(--surface); border-radius: 0.5rem; padding: 1.125rem 1.5rem; font-size: 1rem; color: var(--text-secondary); margin-bottom: 1.5rem; box-shadow: var(--shadow-sm); }
+.problem-item { background: var(--surface); border-radius: 0.625rem; padding: 1.75rem 2rem; box-shadow: var(--shadow-sm); transition: box-shadow 0.2s; }
+.problem-item:hover { box-shadow: var(--shadow-md); }
+.problem-header { display: flex; align-items: center; gap: 0.875rem; margin-bottom: 0.875rem; }
+.problem-num-badge { font-size: 0.875rem; font-weight: 700; color: var(--blue-900); background: var(--blue-50); width: 2.25rem; height: 2.25rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.problem-icon { font-size: 1.375rem; flex-shrink: 0; }
+.problem-title { font-size: 1.0625rem; font-weight: 700; color: var(--text-primary); line-height: 1.4; }
+.problem-quote { background: var(--slate-50); border-left: 4px solid var(--slate-300); padding: 0.875rem 1.125rem; border-radius: 0 6px 6px 0; font-size: 1rem; color: var(--text-secondary); font-style: italic; margin: 0.75rem 0; line-height: 1.6; }
+.problem-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 0.875rem; }
+.frequency-label { font-size: 0.875rem; color: var(--text-muted); background: var(--slate-100); padding: 0.3125rem 0.75rem; border-radius: 0.25rem; }
+.loss-badge { display: flex; align-items: center; gap: 0.5rem; background: var(--amber-50); border-radius: 0.375rem; padding: 0.4375rem 1rem; font-size: 0.9375rem; color: var(--amber-700); font-weight: 600; }
+.loss-num { font-size: 1.25rem; font-weight: 700; }
+.total-loss-card { margin-top: 1.75rem; background: var(--surface); border-top: 4px solid var(--blue-900); border-radius: 0.625rem; padding: 1.75rem 2.25rem; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-md); }
+.total-loss-meta { flex: 1; }
+#total-loss-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.3125rem; }
+#total-loss-sub { font-size: 0.9375rem; color: var(--text-secondary); margin-bottom: 0.25rem; }
+#total-loss-formula { font-size: 0.875rem; color: var(--text-muted); }
+.total-loss-amount { text-align: right; }
+#total-loss-amount { font-size: 2.75rem; font-weight: 700; color: var(--blue-900); line-height: 1; }
+#total-loss-caption { font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+/* 2. 現状スコア診断 */
+.overall-score-card { background: var(--surface); border-radius: 0.625rem; padding: 2rem; display: flex; align-items: center; gap: 2rem; margin-bottom: 1.75rem; box-shadow: var(--shadow-md); }
+.score-ring { position: relative; width: 7.5rem; height: 7.5rem; flex-shrink: 0; }
+.score-ring svg { transform: rotate(-90deg); }
+.ring-bg { fill: none; stroke: var(--slate-200); stroke-width: 9; }
+.ring-fill { fill: none; stroke: var(--blue-900); stroke-width: 9; stroke-linecap: round; stroke-dasharray: 283; stroke-dashoffset: 283; transition: stroke-dashoffset 2s ease; }
+.ring-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ring-num { font-size: 1.875rem; font-weight: 700; color: var(--blue-900); line-height: 1; }
+.ring-label { font-size: 0.875rem; color: var(--text-muted); margin-top: 0.1875rem; }
+.overall-text h3 { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; }
+.overall-text .phase-badge { display: inline-block; background: var(--amber-50); color: var(--amber-700); font-size: 0.9375rem; font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 0.25rem; margin-bottom: 0.75rem; }
+.overall-text p { font-size: 1rem; color: var(--text-secondary); line-height: 1.6; max-width: 35rem; }
+.score-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 1.5rem; align-items: start; }
+.score-cards { display: flex; flex-direction: column; gap: 1rem; }
+.score-item { background: var(--surface); border-radius: 0.625rem; padding: 1.375rem 1.75rem; box-shadow: var(--shadow-sm); }
+.score-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.score-label { font-size: 1rem; font-weight: 600; color: var(--text-primary); }
+.score-value { font-size: 1.75rem; font-weight: 700; line-height: 1; }
+.score-value.blue { color: var(--blue-900); } .score-value.amber { color: var(--amber-700); } .score-value.red { color: #b91c1c; } .score-value.green { color: var(--teal-700); }
+.score-bar-wrap { height: 0.5rem; background: var(--slate-100); border-radius: 0.25rem; overflow: hidden; margin-bottom: 0.75rem; }
+/* スコアバー: 色 + パターン（斜線）で多重エンコード（WCAG 1.4.1対応） */
+.score-bar { height: 100%; border-radius: 0.25rem; transition: width 1.5s ease; width: 0; }
+.bar-blue  { background: var(--blue-900); }
+.bar-amber { background: var(--amber-600); background-image: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.15) 3px, rgba(255,255,255,0.15) 6px); }
+.bar-red   { background: #b91c1c; background-image: repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(255,255,255,0.15) 3px, rgba(255,255,255,0.15) 6px); }
+.bar-green { background: var(--teal-600); }
+.score-note { font-size: 0.9375rem; color: var(--text-muted); line-height: 1.6; }
+.score-note .note-tag { display: block; font-size: 0.875rem; color: var(--text-muted); margin-top: 0.3125rem; }
+.comparison-wrap { background: var(--surface); border-radius: 0.625rem; padding: 1.75rem; box-shadow: var(--shadow-sm); }
+.comparison-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; }
+.comparison-insight { font-size: 0.9375rem; color: var(--blue-900); font-weight: 600; background: var(--blue-50); border-radius: 0.375rem; padding: 0.625rem 1rem; margin-bottom: 1.5rem; line-height: 1.6; }
+.comp-row { margin-bottom: 1.25rem; }
+.comp-row-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.375rem; }
+.comp-name { font-size: 0.9375rem; font-weight: 600; color: var(--text-primary); }
+.comp-scores { display: flex; gap: 0.75rem; align-items: center; }
+.comp-score-you { font-size: 1.125rem; font-weight: 700; color: var(--blue-900); }
+.comp-score-avg { font-size: 0.9375rem; color: var(--text-muted); }
+.comp-bars { position: relative; height: 1rem; background: var(--slate-100); border-radius: 0.5rem; overflow: hidden; }
+.comp-bar-you { height: 100%; border-radius: 0.5rem; transition: width 1.5s ease; width: 0; }
+.comp-bar-avg-line { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--slate-400); border-radius: 2px; transition: left 1.5s ease; }
+.comp-bar-you.blue { background: var(--blue-900); } .comp-bar-you.amber { background: var(--amber-600); } .comp-bar-you.red { background: #dc2626; } .comp-bar-you.green { background: var(--teal-600); } .comp-bar-you.slate { background: var(--slate-500); }
+.comp-legend { display: flex; gap: 1.25rem; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.comp-legend-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-muted); }
+.legend-bar-you { width: 1.5rem; height: 0.625rem; background: var(--blue-900); border-radius: 0.125rem; }
+.legend-line-avg { width: 3px; height: 1rem; background: var(--slate-400); border-radius: 2px; }
+
+/* 3. 着手順序マップ */
+.priority-intro { background: var(--surface); border-radius: 0.5rem; padding: 1.125rem 1.5rem; font-size: 1rem; color: var(--text-secondary); margin-bottom: 1.5rem; box-shadow: var(--shadow-sm); }
+.priority-matrix-wrap { display: flex; gap: 0; align-items: stretch; margin-bottom: 1.5rem; }
+.pm-yaxis { width: 2.75rem; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 2.5rem 0 2rem; }
+.pm-yaxis svg { display: block; }
+.pm-grid-col { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
+.pm-x-header { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; padding: 0 0 0.375rem; }
+.pm-x-label { font-size: 0.875rem; font-weight: 700; color: var(--text-muted); text-align: center; letter-spacing: 0.04em; padding: 0.25rem 0; }
+.pm-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; gap: 0.5rem; }
+.pm-quadrant { border-radius: 0.625rem; padding: 1.25rem 1.375rem; min-height: 10rem; box-shadow: var(--shadow-sm); }
+/* 色 + 左ボーダー + ラベルで象限を識別（WCAG 1.4.1対応） */
+.pm-quickwin  { background: #f0fdf4; border-left: 4px solid var(--green-600); }
+.pm-strategic { background: var(--blue-50);  border-left: 4px solid var(--blue-800); }
+.pm-fillin    { background: var(--amber-50); border-left: 4px solid var(--amber-600); }
+.pm-defer     { background: var(--slate-100); border-left: 4px solid var(--slate-400); }
+.pm-q-header { font-size: 0.9375rem; font-weight: 700; margin-bottom: 0.75rem; line-height: 1.35; display: flex; align-items: center; gap: 0.375rem; }
+/* アイコンと優先度ラベルで色に依存しない識別 */
+.pm-quickwin  .pm-q-header { color: var(--green-700); }
+.pm-strategic .pm-q-header { color: var(--blue-900); }
+.pm-fillin    .pm-q-header { color: var(--amber-700); }
+.pm-defer     .pm-q-header { color: var(--slate-600); }
+.pm-q-badge { font-size: 0.6875rem; font-weight: 700; padding: 0.125rem 0.5rem; border-radius: 2rem; margin-left: auto; white-space: nowrap; }
+.pm-quickwin  .pm-q-badge { background: var(--green-700);  color: #fff; }
+.pm-strategic .pm-q-badge { background: var(--blue-900);   color: #fff; }
+.pm-fillin    .pm-q-badge { background: var(--amber-600);  color: #fff; }
+.pm-defer     .pm-q-badge { background: var(--slate-500);  color: #fff; }
+.pm-solution { background: var(--surface); border-radius: 0.4375rem; padding: 0.6875rem 0.875rem; margin-top: 0.625rem; box-shadow: var(--shadow-sm); }
+.pm-solution-title { font-size: 0.9375rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; }
+.pm-solution-meta { font-size: 0.875rem; color: var(--text-muted); line-height: 1.4; }
+.pm-solution-prereq { font-size: 0.875rem; color: var(--amber-700); font-weight: 600; margin-top: 0.375rem; display: flex; align-items: flex-start; gap: 0.25rem; }
+.priority-callout { background: var(--green-50); border-left: 4px solid var(--green-600); border-radius: 0 0.5rem 0.5rem 0; padding: 1rem 1.25rem; font-size: 1rem; color: var(--green-700); line-height: 1.6; }
+
+/* 4. ネットワーク図 */
+.network-outer { background: var(--surface); border-radius: 0.625rem; padding: 2rem; box-shadow: var(--shadow-sm); margin-bottom: 1.5rem; }
+.network-subtitle { font-size: 1rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.5rem; }
+.network-svg-wrap { width: 100%; overflow: visible; margin: 0 0 1.5rem; }
+.network-insight-primary { background: var(--blue-900); border-radius: 0.5rem; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+.network-insight-primary .ni-label { font-size: 0.875rem; font-weight: 700; color: rgba(255,255,255,0.7); letter-spacing: 0.08em; margin-bottom: 0.5rem; }
+.network-insight-primary .ni-body { font-size: 1.0625rem; color: #ffffff; font-weight: 700; line-height: 1.6; }
+.network-insight-secondary { background: var(--slate-50); border-radius: 0.5rem; padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; box-shadow: var(--shadow-sm); }
+.network-insight-secondary .ni-label { font-size: 0.875rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.08em; margin-bottom: 0.5rem; }
+.network-insight-secondary .ni-body { font-size: 1rem; color: var(--text-secondary); line-height: 1.6; }
+.loop-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem; }
+.loop-card { background: var(--surface); border-radius: 0.5rem; padding: 1.125rem 1.25rem; box-shadow: var(--shadow-sm); }
+.loop-card-label { font-size: 0.875rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.06em; margin-bottom: 0.5rem; }
+.loop-card-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.375rem; line-height: 1.4; }
+.loop-card-desc { font-size: 0.9375rem; color: var(--text-secondary); line-height: 1.6; }
+.network-legend { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: center; padding-top: 1rem; border-top: 1px solid var(--border); }
+.network-legend-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-muted); }
+.legend-dot { width: 1rem; height: 1rem; border-radius: 50%; border: 2.5px solid currentColor; flex-shrink: 0; }
+.legend-arrow-mutual { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 1.125rem; font-weight: 700; color: var(--blue-900); line-height: 1; }
+.legend-arrow-one { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 1.125rem; font-weight: 700; color: var(--slate-400); line-height: 1; }
+
+/* 5. 具体策 */
+.solutions-intro { background: var(--teal-50); border-radius: 0.5rem; padding: 1.125rem 1.5rem; font-size: 1rem; color: var(--teal-700); margin-bottom: 1.5rem; box-shadow: var(--shadow-sm); }
+.solution-item { background: var(--surface); border-radius: 0.625rem; padding: 1.75rem 2rem; box-shadow: var(--shadow-sm); transition: box-shadow 0.2s; word-break: auto-phrase; overflow-wrap: break-word; }
+.solution-item:hover { box-shadow: var(--shadow-md); }
+.solution-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.875rem; gap: 1rem; }
+.solution-problem-tag { font-size: 0.875rem; font-weight: 600; color: var(--text-muted); background: var(--slate-100); padding: 0.1875rem 0.625rem; border-radius: 0.25rem; display: inline-block; margin-bottom: 0.375rem; }
+.solution-title { font-size: 1.0625rem; font-weight: 700; color: var(--text-primary); line-height: 1.4; overflow-wrap: break-word; word-break: auto-phrase; }
+.solution-problem-tag { font-size: 0.875rem; font-weight: 600; color: var(--text-muted); background: var(--slate-100); padding: 0.1875rem 0.625rem; border-radius: 0.25rem; display: inline-block; margin-bottom: 0.375rem; }
+.solution-title { font-size: 1.0625rem; font-weight: 700; color: var(--text-primary); line-height: 1.4; overflow-wrap: break-word; word-break: auto-phrase; }
+.outcome-chips { display: flex; gap: 0.5rem; flex-wrap: wrap; flex-shrink: 0; }
+.outcome-chip { font-size: 0.875rem; font-weight: 600; padding: 0.25rem 0.75rem; border-radius: 1.25rem; white-space: nowrap; background: var(--teal-50); color: var(--teal-700); }
+.solution-desc { font-size: 1rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 0.875rem; overflow-wrap: break-word; word-break: auto-phrase; }
+.solution-prereq-bar { background: var(--amber-50); border-radius: 0.375rem; padding: 0.625rem 1rem; margin-bottom: 0.875rem; font-size: 0.9375rem; color: var(--amber-700); font-weight: 600; display: flex; align-items: flex-start; gap: 0.5rem; line-height: 1.5; }
+.solution-meta { display: flex; gap: 1.5rem; align-items: center; padding-top: 1rem; border-top: 1px solid var(--border); }
+.star-group { display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem; }
+.star-label { font-size: 0.875rem; color: var(--text-muted); }
+.stars { display: flex; gap: 0.1875rem; } .star { font-size: 1rem; } .star-active { color: var(--amber-600); } .star-inactive { color: var(--slate-200); }
+.solution-time { margin-left: auto; background: var(--green-50); border-radius: 0.375rem; padding: 0.4375rem 1rem; font-size: 0.9375rem; color: var(--green-700); font-weight: 700; white-space: nowrap; }
+.time-num { font-size: 1.25rem; font-weight: 700; }
+.chart-card { background: var(--surface); border-radius: 0.625rem; padding: 2rem; margin-top: 1.75rem; box-shadow: var(--shadow-sm); }
+.chart-title { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 1.125rem; }
+.chart-note { font-size: 0.875rem; color: var(--text-muted); margin-top: 0.625rem; text-align: right; }
+
+/* 7. ロードマップ */
+.roadmap-summary { background: var(--surface); border-radius: 0.625rem; padding: 1.5rem 2rem; margin-bottom: 1.75rem; box-shadow: var(--shadow-sm); font-size: 1.0625rem; color: var(--text-secondary); line-height: 1.6; }
+.roadmap-phases { display: grid; grid-template-columns: repeat(auto-fit, minmax(17.5rem, 1fr)); gap: 1.25rem; margin-bottom: 2rem; }
+.roadmap-phase { border-radius: 0 0.625rem 0.625rem 0; padding: 1.375rem 1.5rem; box-shadow: var(--shadow-sm); }
+.roadmap-phase-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.625rem; }
+.roadmap-phase-badge { font-size: 0.875rem; font-weight: 700; padding: 0.1875rem 0.75rem; border-radius: 0.25rem; letter-spacing: 0.04em; }
+.roadmap-period { font-size: 0.875rem; color: var(--text-muted); font-weight: 600; }
+.roadmap-phase-title { font-size: 1.0625rem; font-weight: 700; margin-bottom: 0.875rem; line-height: 1.4; }
+.roadmap-actions { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; padding: 0; }
+.roadmap-action { font-size: 0.9375rem; color: var(--text-secondary); line-height: 1.6; padding-left: 1.25rem; position: relative; }
+.roadmap-action::before { content: '▸'; position: absolute; left: 0; color: var(--slate-400); font-size: 0.8125rem; top: 0.1875rem; }
+.roadmap-principles-title { font-size: 1.125rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1.125rem; }
+.principles-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1.25rem; }
+.principle-card { background: var(--surface); border-radius: 0.625rem; padding: 1.375rem 1.5rem; box-shadow: var(--shadow-sm); }
+.principle-icon { font-size: 1.375rem; font-weight: 900; color: var(--blue-900); margin-bottom: 0.625rem; line-height: 1; }
+.principle-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; line-height: 1.4; }
+.principle-desc { font-size: 0.9375rem; color: var(--text-secondary); line-height: 1.6; }
+.roadmap-closing { background: var(--slate-50); border-radius: 0.5rem; padding: 1.25rem 1.5rem; box-shadow: var(--shadow-sm); font-size: 0.9375rem; color: var(--text-muted); line-height: 1.6; margin-top: 1.75rem; }
+
+/* その他 */
+.disclaimer { max-width: 80rem; margin: 0 auto; padding: 1.75rem 3rem 3.25rem; font-size: 0.875rem; color: var(--text-muted); line-height: 1.6; border-top: 1px solid var(--border); }
+
+/* ============================================================
+   P1: ヒーローセクション再設計
+   ============================================================ */
+.hero-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; max-width: 80rem; margin: 0 auto; }
+@media (max-width: 768px) { .hero-inner { grid-template-columns: 1fr; } }
+.hero-left { display: flex; flex-direction: column; gap: 1rem; }
+.hero-right { display: flex; flex-direction: column; gap: 1rem; }
+.hero-desc-toggle { background: rgba(255,255,255,0.08); border-radius: 0.5rem; padding: 0.75rem 1rem; }
+.hero-desc-toggle summary { font-size: 0.875rem; color: rgba(255,255,255,0.75); cursor: pointer; font-weight: 600; list-style: none; }
+.hero-desc-toggle summary::-webkit-details-marker { display: none; }
+.hero-desc-toggle summary::before { content: '▶ '; font-size: 0.75rem; }
+.hero-desc-toggle[open] summary::before { content: '▼ '; }
+.hero-desc-toggle p { font-size: 0.9375rem; color: rgba(255,255,255,0.85); line-height: 1.7; margin-top: 0.75rem; }
+.hero-loss-card { background: rgba(255,255,255,0.1); border-radius: 0.625rem; padding: 1.25rem 1.5rem; }
+.hero-loss-label { font-size: 0.8125rem; color: rgba(255,255,255,0.65); font-weight: 600; letter-spacing: 0.06em; margin-bottom: 0.375rem; }
+.hero-loss-value { font-size: 2rem; font-weight: 700; color: #fbbf24; line-height: 1; }
+.hero-loss-sub { font-size: 0.8125rem; color: rgba(255,255,255,0.6); margin-top: 0.25rem; }
+.hero-adoption-row { font-size: 0.875rem; color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.08); border-radius: 0.375rem; padding: 0.5rem 0.875rem; }
+
+/* ============================================================
+   P1: スコアゲージ凡例
+   ============================================================ */
+.score-legend { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.75rem; justify-content: center; }
+.legend-item { font-size: 0.8125rem; font-weight: 600; display: flex; align-items: center; gap: 0.25rem; }
+.legend-item.danger  { color: var(--c-danger); }
+.legend-item.warning { color: var(--c-warning); }
+.legend-item.success { color: var(--c-success); }
+.phase-badge[data-zone="danger"]  { background: #fef2f2; color: var(--c-danger); }
+.phase-badge[data-zone="warning"] { background: #fffbeb; color: var(--c-warning); }
+.phase-badge[data-zone="success"] { background: #f0fdf4; color: var(--c-success); }
+
+/* ============================================================
+   P1: exec-cardセマンティックカラー
+   ============================================================ */
+.exec-card--status { border-top: 4px solid var(--c-primary-mid); }
+.exec-card--risk   { border-top: 4px solid var(--c-danger); }
+.exec-card--action { border-top: 4px solid var(--c-success); }
+.exec-card-icon { font-size: 1.125rem; margin-bottom: 0.5rem; display: block; }
+
+/* ============================================================
+   P2: スクロール追従ナビ
+   ============================================================ */
+.section-nav { position: fixed; right: 1rem; top: 50%; transform: translateY(-50%); z-index: 200; }
+.section-nav ul { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+.section-nav a {
+  display: flex; align-items: center; justify-content: center;
+  width: 2rem; height: 2rem; border-radius: 50%;
+  background: var(--surface); border: 2px solid var(--border);
+  font-size: 0.6875rem; font-weight: 700; color: var(--text-muted);
+  text-decoration: none; transition: all 0.2s; position: relative;
+}
+.section-nav a:hover { background: var(--blue-900); color: #fff; border-color: var(--blue-900); }
+.section-nav a.active { background: var(--blue-900); color: #fff; border-color: var(--blue-900); }
+.section-nav a::after {
+  content: attr(data-label); position: absolute; right: calc(100% + 0.5rem);
+  background: var(--blue-900); color: #fff; font-size: 0.75rem; font-weight: 600;
+  padding: 0.25rem 0.625rem; border-radius: 0.25rem; white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: opacity 0.15s;
+}
+.section-nav a:hover::after { opacity: 1; }
+@media (max-width: 768px) { .section-nav { display: none; } }
+
+/* 読了プログレスバー */
+.reading-progress { height: 3px; background: var(--border); position: sticky; top: 4.25rem; z-index: 99; }
+.reading-progress-bar { height: 100%; width: 0%; background: var(--blue-800); transition: width 0.1s linear; }
+
+/* ============================================================
+   P2: 具体策バッジ
+   ============================================================ */
+.measure-badge { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.6875rem; font-weight: 700; padding: 0.1875rem 0.625rem; border-radius: 2rem; margin-bottom: 0.375rem; }
+.badge--immediate { background: var(--green-100); color: var(--c-success); }
+.badge--strategic { background: #fff3cd; color: var(--c-warning); }
+.badge--fillin    { background: var(--slate-100); color: var(--c-neutral); }
+.badge--defer     { background: var(--slate-100); color: var(--slate-500); }
+
+/* ============================================================
+   P1: CTAブロック
+   ============================================================ */
+.cta-block { background: var(--c-bg-callout); border-radius: 0.75rem; padding: 2rem 2.5rem; margin-bottom: 2rem; border-left: 4px solid var(--c-primary-mid); }
+.cta-title { font-size: 1.25rem; font-weight: 700; color: var(--c-primary); margin-bottom: 0.75rem; }
+.cta-desc  { font-size: 1rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 1.5rem; }
+.cta-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
+.btn-primary, .btn-secondary {
+  min-height: 3rem; padding: 0.875rem 1.75rem; border-radius: 0.5rem;
+  font-size: 0.9375rem; font-weight: 600; cursor: pointer;
+  transition: background 0.2s, transform 0.1s; font-family: inherit;
+}
+.btn-primary { background: var(--c-primary); color: #fff; border: none; }
+.btn-primary:hover { background: var(--c-primary-mid); }
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:focus-visible { outline: 3px solid var(--c-primary-mid); outline-offset: 3px; }
+.btn-secondary { background: transparent; border: 2px solid var(--c-primary); color: var(--c-primary); }
+.btn-secondary:hover { background: var(--c-bg-callout); }
+.btn-secondary:focus-visible { outline: 3px solid var(--c-primary-mid); outline-offset: 3px; }
+
+/* ============================================================
+   印刷CSS
+   ============================================================ */
+@media print {
+  .section-nav, .reading-progress, .cta-block, header .header-meta { display: none !important; }
+  .hero { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .section { page-break-inside: avoid; }
+  body { font-size: 12pt; }
+}
+
+/* Powered by dTosh */
+.powered-by { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.6875rem; color: var(--slate-400); letter-spacing: 0.05em; user-select: none; }
+.powered-by strong { font-weight: 700; color: var(--slate-500); }
+</style>
+</head>
+<body>
+
+<!-- ==========================================================
+     SCREEN 1: 入力フォーム
+     ========================================================== -->
+<div id="screen-input" class="screen active">
+  <div class="form-container">
+    <h2 class="form-title">AI活用診断レポート 自動生成</h2>
+    <p class="form-desc">企業名を入力して「診断を開始する」ボタンを押してください。<br>自律型AIエージェントがWeb上の情報を収集し、専用のダッシュボードを自動生成します。</p>
+    
+    <div class="form-group">
+      <label class="form-label" for="companyName">企業名 <span style="color:#dc2626;">*</span></label>
+      <input type="text" id="companyName" class="form-input" placeholder="例：株式会社〇〇商事" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="hearingData">
+        自社の状況を教えてください <span style="font-weight:400;color:var(--text-muted);font-size:0.8125rem;">（任意・入力するほど診断精度が上がります）</span>
+      </label>
+      <textarea id="hearingData" class="form-textarea" placeholder="・どんな業務に時間がかかっているか（例：日報作成に毎日1時間）&#10;・会社の規模や部門（例：従業員30名、営業中心）&#10;・解決したいこと（例：残業削減、人手不足の補填）&#10;・予算感（例：月5万円以内で始めたい）"></textarea>
+    </div>
+    
+    <button id="btn-submit" class="btn-submit" onclick="startDiagnosis()">診断を開始する</button>
+
+    <div style="text-align:center;margin-top:1.5rem;">
+      <span class="powered-by">Powered by <strong>dTosh Inc.</strong></span>
+    </div>
+  </div>
+</div>
+
+<!-- ==========================================================
+     SCREEN 2: ローディング画面
+     ========================================================== -->
+<div id="screen-loading" class="screen">
+  <div class="loading-container">
+    <div class="loading-title">診断レポートを生成しています</div>
+    <div class="loading-company" id="loading-company-name"></div>
+
+    <div class="loading-progress-wrap">
+      <div class="loading-progress-fill" id="loading-progress"></div>
+    </div>
+
+    <div class="loading-timeline" id="loading-timeline">
+      <div class="lt-item">
+        <div class="lt-dot wait" id="lt-dot-0"></div>
+        <div class="lt-label" id="lt-label-0">企業<br>調査</div>
+      </div>
+      <div class="lt-item">
+        <div class="lt-dot wait" id="lt-dot-1"></div>
+        <div class="lt-label" id="lt-label-1">業界<br>調査</div>
+      </div>
+      <div class="lt-item">
+        <div class="lt-dot wait" id="lt-dot-2"></div>
+        <div class="lt-label" id="lt-label-2">課題<br>分析</div>
+      </div>
+      <div class="lt-item">
+        <div class="lt-dot wait" id="lt-dot-3"></div>
+        <div class="lt-label" id="lt-label-3">レポート<br>生成</div>
+      </div>
+    </div>
+
+    <div class="loading-status-text" id="loading-status"></div>
+    <div class="loading-eta">推定残り時間：<span id="loading-eta-val">約3分</span></div>
+
+    <div class="loading-note">この画面を閉じずにお待ちください。</div>
+    <div style="margin-top:1.25rem;">
+      <span class="powered-by">Powered by <strong>dTosh Inc.</strong></span>
+    </div>
+  </div>
+</div>
+
+<!-- ==========================================================
+     SCREEN 3: ダッシュボード画面（元のHTML）
+     ========================================================== -->
+<div id="screen-dashboard" class="screen">
+  <!-- ─── HEADER ─── -->
+  <header class="header">
+    <div class="header-logo">
+      <img src="data:image/png;base64,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" alt="dTosh Inc. ロゴ" style="width:2.5rem;height:2.5rem;border-radius:0.5rem;object-fit:cover;flex-shrink:0;">
+      <div>
+        <div class="logo-text">AI活用診断レポート</div>
+        <div class="logo-sub">Powered by dTosh Inc.</div>
+      </div>
+    </div>
+    <div class="header-meta">
+      <span class="powered-by" style="margin-right:0.5rem;">Powered by <strong>dTosh Inc.</strong></span>
+      <span class="confidential-badge">🔒 CONFIDENTIAL</span>
+      <span class="header-date" id="report-date"></span>
+    </div>
+  </header>
+
+  <!-- P2: スクロール追従ナビ -->
+  <nav class="section-nav" aria-label="レポートナビゲーション">
+    <ul>
+      <li><a href="#sec1"      data-label="業務課題">01</a></li>
+      <li><a href="#sec-trend" data-label="業界動向">02</a></li>
+      <li><a href="#sec2"      data-label="現状診断">03</a></li>
+      <li><a href="#sec3"      data-label="着手順序">04</a></li>
+      <li><a href="#sec5"      data-label="具体策">05</a></li>
+      <li><a href="#sec4"      data-label="競争優位">06</a></li>
+      <li><a href="#sec7"      data-label="ロードマップ">07</a></li>
+    </ul>
+  </nav>
+
+  <!-- P2: 読了プログレスバー（モバイル用） -->
+  <div class="reading-progress" role="progressbar" aria-label="読了進捗" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+    <div class="reading-progress-bar" id="reading-progress-bar"></div>
+  </div>
+
+  <!-- ─── HERO ─── -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-left">
+        <div class="hero-eyebrow" id="hero-eyebrow">AI活用診断レポート</div>
+        <div class="hero-company" id="hero-company">読み込み中...</div>
+        <h1 class="hero-title">AI活用診断レポート</h1>
+        <details class="hero-desc-toggle">
+          <summary>企業概要を見る</summary>
+          <p id="industry-desc">業種・業態・公開情報をもとに生成した、貴社専用の診断レポートです。</p>
+        </details>
+      </div>
+      <div class="hero-right">
+        <div class="hero-loss-card">
+          <div class="hero-loss-label">⚠ 月間推定損失額</div>
+          <div class="hero-loss-value" id="hero-loss-value">¥---</div>
+          <div class="hero-loss-sub">手作業による非効率業務（推計）</div>
+        </div>
+        <div class="hero-adoption-row">業界AI導入率（推計）：<strong><span id="stat-risk">--</span>%</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── EXECUTIVE SUMMARY ─── -->
+  <section class="exec-summary">
+    <div class="exec-summary-inner">
+      <div class="exec-summary-label">このレポートで伝えたい3つのこと</div>
+      <div class="exec-summary-grid">
+        <div class="exec-card exec-card--status">
+          <span class="exec-card-icon">📊</span>
+          <div class="exec-card-num">現状</div>
+          <div class="exec-card-heading">同業他社の多くがすでにAIを使い始めています</div>
+          <div class="exec-card-body">
+            AI活用度スコアは<br>
+            <span class="highlight" id="exec-overall">--点</span>（業界平均推計）。<br>
+            改善の余地は十分あります。
+          </div>
+        </div>
+        <div class="exec-card exec-card--risk">
+          <span class="exec-card-icon">⚠️</span>
+          <div class="exec-card-num">課題と損失</div>
+          <div class="exec-card-heading">手作業による非効率な業務</div>
+          <div class="exec-card-body">
+            月間推定 <span class="highlight-amber" id="exec-loss" aria-label="月間推定損失額">¥---</span><br>
+            が日常的な非効率業務に消えていると試算されます。
+          </div>
+        </div>
+        <div class="exec-card exec-card--action">
+          <span class="exec-card-icon">✅</span>
+          <div class="exec-card-num">推奨する進め方</div>
+          <div class="exec-card-heading">「今すぐ始める」施策から試験導入を推奨</div>
+          <div class="exec-card-body">
+            準備コストが低く成果が早い<br>
+            <span class="highlight-green">即効型の施策</span>から着手し、<br>
+            組織の定着を図りましょう。
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── MAIN ─── -->
+  <main class="main">
+
+    <!-- ===== SECTION 1: 業務課題と損失 ===== -->
+    <section class="section" id="sec1">
+      <div class="section-header">
+        <span class="section-num">01</span>
+        <div class="section-title-wrap">
+          <span class="section-tag tag-problem">業務課題</span>
+          <h2 class="section-title">よく起きている「もったいない業務」TOP5</h2>
+        </div>
+      </div>
+      <div class="problems-intro">業種・規模から推定した「日常的に時間を奪っている非効率な業務」です。</div>
+      <div class="flex flex-col gap-16" id="problems-container"></div>
+      
+      <div class="total-loss-card">
+        <div class="total-loss-meta">
+          <div id="total-loss-title">合計：月間の推定ロス工数（5名規模換算）</div>
+          <div id="total-loss-sub">上記の合計時間 × 5名 × 時給換算（3,000円）</div>
+          <div id="total-loss-formula">算出根拠：—</div>
+        </div>
+        <div class="total-loss-amount">
+          <div id="total-loss-amount">¥—</div>
+          <div id="total-loss-caption">月間の推定損失額（5名・推計）</div>
+        </div>
+      </div>
+    </section>
+    <div class="divider"></div>
+
+    <!-- ===== SECTION 2: 業界動向 ===== -->
+    <section class="section" id="sec-trend">
+      <div class="section-header">
+        <span class="section-num">02</span>
+        <div class="section-title-wrap">
+          <span class="section-tag tag-trend">業界動向（参考）</span>
+          <h2 class="section-title">なぜ今、AI活用が必要なのか</h2>
+        </div>
+      </div>
+
+      <!-- 業界概況 -->
+      <div class="problems-intro" id="trend-summary"></div>
+
+      <!-- 導入拡大トレンド -->
+      <div style="background:var(--blue-50);border-left:4px solid var(--blue-800);border-radius:0 0.5rem 0.5rem 0;padding:1rem 1.25rem;margin-bottom:1.75rem;font-size:1rem;color:var(--blue-900);font-weight:600;line-height:1.6;" id="trend-adoption"></div>
+
+      <!-- 導入事例 -->
+      <div style="font-size:1rem;font-weight:700;color:var(--text-primary);margin-bottom:1rem;">同業他社の導入実績（業界の平均値・公開情報をもとに構成）</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.25rem;margin-bottom:1.75rem;" id="trend-cases"></div>
+
+      <!-- 緊急性メッセージ -->
+      <div style="background:var(--slate-50);border-radius:0.5rem;padding:1.25rem 1.5rem;font-size:1rem;color:var(--text-secondary);line-height:1.7;" id="trend-urgency"></div>
+    </section>
+    <div class="divider"></div>
+
+    <!-- ===== SECTION 3: 現状スコア診断 ===== -->
+    <section class="section" id="sec2">
+      <div class="section-header">
+        <span class="section-num">03</span>
+        <div class="section-title-wrap">
+          <span class="section-tag tag-analysis">現状診断</span>
+          <h2 class="section-title">現状を数字で見る（推計）</h2>
+        </div>
+      </div>
+      <div class="overall-score-card">
+        <div class="score-ring">
+          <svg width="120" height="120" viewBox="0 0 100 100">
+            <!-- 3ゾーン背景アーク（0-50赤, 51-70橙, 71-100緑） -->
+            <circle fill="none" stroke="#c0392b" stroke-width="9" cx="50" cy="50" r="45"
+              stroke-dasharray="141 142" stroke-dashoffset="0" transform="rotate(-90 50 50)" opacity="0.25"/>
+            <circle fill="none" stroke="#e07b00" stroke-width="9" cx="50" cy="50" r="45"
+              stroke-dasharray="57 226" stroke-dashoffset="-141" transform="rotate(-90 50 50)" opacity="0.25"/>
+            <circle fill="none" stroke="#1f7a4d" stroke-width="9" cx="50" cy="50" r="45"
+              stroke-dasharray="85 198" stroke-dashoffset="-198" transform="rotate(-90 50 50)" opacity="0.25"/>
+            <circle class="ring-bg" cx="50" cy="50" r="45" fill="none" stroke="transparent" stroke-width="9"/>
+            <circle class="ring-fill" id="main-ring" cx="50" cy="50" r="45"/>
+          </svg>
+          <div class="ring-text">
+            <span class="ring-num" id="overall-num">0</span>
+            <span class="ring-label">総合点数</span>
+          </div>
+        </div>
+        <div class="overall-text">
+          <h3>総合AI活用度（100点満点）</h3>
+          <span class="phase-badge" id="phase-badge">「今すぐ始める必要がある」段階</span>
+          <div class="score-legend" role="note">
+            <span class="legend-item danger">● 0〜50：要緊急対応</span>
+            <span class="legend-item warning">● 51〜70：要着手</span>
+            <span class="legend-item success">● 71〜100：先進的</span>
+          </div>
+          <p>AIで改善できる業務の多さは高い水準にありますが、同業他社との差が広がっている可能性があります。早い段階での着手が推奨されます。</p>
+        </div>
+      </div>
+
+      <div class="score-container">
+        <div class="score-cards" id="score-cards-container">
+          <!-- JSで生成 -->
+        </div>
+        <div class="comparison-wrap">
+          <div class="comparison-title">同業他社との比較</div>
+          <div class="comparison-insight" id="comp-insight"></div>
+          <div id="comparison-bars"></div>
+          <div class="comp-legend">
+            <div class="comp-legend-item"><div class="legend-bar-you"></div><span>貴社（推計）</span></div>
+            <div class="comp-legend-item"><div class="legend-line-avg"></div><span>業界平均（推計）</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div class="divider"></div>
+
+    <!-- ===== SECTION 4: 着手順序マップ ===== -->
+    <section class="section" id="sec3">
+      <div class="section-header">
+        <span class="section-num">04</span>
+        <div class="section-title-wrap">
+          <span class="section-tag tag-priority">着手順序</span>
+          <h2 class="section-title">どこから始めるべきか — 効果と始めやすさで仕分けた優先度マップ</h2>
+        </div>
+      </div>
+      <div class="priority-intro">各改善策には必要な準備・前提条件の差があります。下のマップで、着手すべき改善策を仕分けました。</div>
+      <div class="priority-matrix-wrap">
+        <div class="pm-yaxis">
+          <svg width="28" height="80" viewBox="0 0 28 80" aria-label="効果が大きい">
+            <line x1="14" y1="75" x2="14" y2="8" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#up)"/>
+            <defs><marker id="up" viewBox="0 0 10 10" refX="5" refY="10" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 10L5 0L10 10" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linejoin="round"/></marker></defs>
+            <text x="14" y="78" text-anchor="middle" font-size="9" font-weight="700" fill="#94a3b8" font-family="'Noto Sans JP',sans-serif" writing-mode="horizontal-tb">↑大</text>
+          </svg>
+          <svg width="44" height="120" viewBox="0 0 44 120" aria-label="効果の軸ラベル">
+            <text x="22" y="60" text-anchor="middle" dominant-baseline="middle" font-size="10" font-weight="700" fill="#94a3b8" font-family="'Noto Sans JP',sans-serif" transform="rotate(-90,22,60)">効果の大きさ</text>
+          </svg>
+          <svg width="28" height="80" viewBox="0 0 28 80" aria-label="効果が小さい">
+            <line x1="14" y1="5" x2="14" y2="72" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#down)"/>
+            <defs><marker id="down" viewBox="0 0 10 10" refX="5" refY="0" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L5 10L10 0" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linejoin="round"/></marker></defs>
+            <text x="14" y="78" text-anchor="middle" font-size="9" font-weight="700" fill="#94a3b8" font-family="'Noto Sans JP',sans-serif">↓小</text>
+          </svg>
+        </div>
+        <div class="pm-grid-col">
+          <div class="pm-x-header">
+            <div class="pm-x-label">← 準備や設定が必要</div>
+            <div class="pm-x-label">今すぐ始められる →</div>
+          </div>
+          <div class="pm-grid">
+            <div class="pm-quadrant pm-strategic" role="region" aria-label="準備が整ってから着手">
+              <div class="pm-q-header">🎯 準備が整ってから着手<span class="pm-q-badge">優先度：高</span></div>
+              <div id="pm-strategic"></div>
+            </div>
+            <div class="pm-quadrant pm-quickwin" role="region" aria-label="今すぐ始める（最優先）">
+              <div class="pm-q-header">⚡ 今すぐ始める<span class="pm-q-badge">最優先</span></div>
+              <div id="pm-quickwin"></div>
+            </div>
+            <div class="pm-quadrant pm-defer" role="region" aria-label="後回しでよい">
+              <div class="pm-q-header">⏸ 後回しでよい<span class="pm-q-badge">優先度：低</span></div>
+              <div id="pm-defer"></div>
+            </div>
+            <div class="pm-quadrant pm-fillin" role="region" aria-label="余力があれば">
+              <div class="pm-q-header">📋 余力があれば<span class="pm-q-badge">中優先</span></div>
+              <div id="pm-fillin"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div class="divider"></div>
+
+    <!-- ===== SECTION 5: 具体策 ===== -->
+    <section class="section" id="sec5">
+      <div class="section-header">
+        <span class="section-num">05</span>
+        <div class="section-title-wrap">
+          <span class="section-tag tag-solution">具体策</span>
+          <h2 class="section-title">AIで今すぐ改善できる業務：具体策</h2>
+        </div>
+      </div>
+      <div class="flex flex-col gap-16" id="solutions-container"></div>
+      <div class="chart-card">
+        <div class="chart-title">AI導入による月間作業時間の削減シミュレーション</div>
+        <canvas id="barChart" height="110"></canvas>
+      </div>
+    </section>
+    <div class="divider"></div>
+
+    <!-- ===== SECTION 6: 競争優位の構造 ===== -->
+    <section class="section" id="sec4">
+      <div class="section-header">
+        <span class="section-num">06</span>
+        <div class="section-title-wrap">
+          <span class="section-tag tag-network">競争優位の構造</span>
+          <h2 class="section-title">なぜ貴社だけの「強み」になるのか — 組織能力ネットワーク</h2>
+        </div>
+      </div>
+      <div class="network-outer">
+        <p class="network-subtitle">AIで整備される各能力が互いに強化し合うネットワークとして稼働し始めたとき、競合が追いつけない「組織固有の強み」が生まれます。</p>
+        <div class="network-svg-wrap">
+          <svg id="capability-svg" viewBox="0 0 760 360" style="width:100%;max-width:760px;display:block;margin:0 auto;"></svg>
+        </div>
+        <div class="network-insight-primary">
+          <div class="ni-label">◎ コア能力（競争優位の源泉）</div>
+          <div class="ni-body" id="network-core-insight">読み込み中...</div>
+        </div>
+        <div class="network-insight-secondary">
+          <div class="ni-label">▶ なぜ競合に模倣できないのか</div>
+          <div class="ni-body" id="network-moat-insight">読み込み中...</div>
+        </div>
+        <div class="loop-cards" id="loop-cards"></div>
+      </div>
+    </section>
+    <div class="divider"></div>
+
+    <!-- ===== SECTION 7: 総括・今後のロードマップ ===== -->
+    <section class="section" id="sec7">
+      <div class="section-header">
+        <span class="section-num">07</span>
+        <div class="section-title-wrap">
+          <span class="section-tag tag-action">ロードマップ</span>
+          <h2 class="section-title">推奨する取り組み順序</h2>
+        </div>
+      </div>
+      <div class="roadmap-phases" id="roadmap-phases"></div>
+      <!-- P1: CTAブロック -->
+      <div class="cta-block" role="complementary" aria-label="次のステップ">
+        <h3 class="cta-title">まず Phase 1 から始めましょう</h3>
+        <p class="cta-desc">準備コストなしで着手できる施策があります。1〜2ヶ月で効果計測まで完了します。</p>
+        <div class="cta-actions">
+          <button class="btn-primary" onclick="window.print()">📄 このレポートをPDFで保存</button>
+          <button class="btn-secondary" onclick="window.scrollTo({top:0,behavior:'smooth'})">🔄 診断条件を変えて再生成</button>
+        </div>
+      </div>
+      <div class="roadmap-closing">
+        <p>本レポートに掲載されている点数・推計値はAIによる推計値です。本レポートを社内議論の出発点として活用し、実情に即した形でアクションプランを策定されることを推奨します。</p>
+      </div>
+    </section>
+  </main>
+
+  <div class="disclaimer">
+    本レポートは、企業名等の入力情報をもとに自律型AIエージェントが生成した推計ダッシュボードです。<br>
+    © dTosh Inc. All rights reserved
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 【超重要】n8nのWebhook URLをここに設定してください
+// ============================================================
+// ★注意: ご自身のn8nの "Production URL" に書き換えてください。
+const N8N_POST_URL = "https://toshikihirao.app.n8n.cloud/webhook/generate-report"; // POST（受付用）
+const N8N_GET_URL  = "https://toshikihirao.app.n8n.cloud/webhook/check-status";  // GET（状態確認用）
+
+// ============================================================
+// アプリケーション制御 (画面遷移とAPI通信)
+// ============================================================
+function showScreen(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+const loadingSteps = [
+  { label: "企業情報をWebから検索・収集しています", eta: "約3分", progress: 10 },
+  { label: "業界のAI導入動向を深掘り調査しています", eta: "約2分", progress: 35 },
+  { label: "入力内容からボトルネックを分析しています", eta: "約1分30秒", progress: 60 },
+  { label: "解決策とロードマップを組み立てています", eta: "約1分", progress: 80 },
+  { label: "ダッシュボード用レポートデータを最終生成しています", eta: "まもなく完了", progress: 92 }
+];
+
+function updateLoadingStep(index) {
+  const step = loadingSteps[Math.min(index, loadingSteps.length - 1)];
+  const statusEl = document.getElementById('loading-status');
+  const progressEl = document.getElementById('loading-progress');
+  const etaEl = document.getElementById('loading-eta-val');
+  if(statusEl) statusEl.textContent = step.label;
+  if(progressEl) progressEl.style.width = step.progress + '%';
+  if(etaEl) etaEl.textContent = step.eta;
+
+  // タイムラインドット更新（4ステップに対応: steps 0-1→dot0, 1-2→dot1, 2-3→dot2, 3-4→dot3）
+  const dotMap = [0, 1, 2, 3];
+  dotMap.forEach((dotIdx, i) => {
+    const dot = document.getElementById('lt-dot-' + dotIdx);
+    const lbl = document.getElementById('lt-label-' + dotIdx);
+    if(!dot || !lbl) return;
+    dot.className = 'lt-dot ' + (i < index ? 'done' : i === index ? 'active' : 'wait');
+    lbl.className = 'lt-label ' + (i < index ? 'done' : i === index ? 'active' : '');
+  });
+}
+
+async function startDiagnosis() {
+  const companyName = document.getElementById('companyName').value.trim();
+  const hearingData = document.getElementById('hearingData').value.trim();
+  
+  if (!companyName) {
+    alert("企業名を入力してください。");
+    return;
+  }
+
+  document.getElementById('btn-submit').disabled = true;
+
+  // 企業名をローディング画面に表示
+  const companyEl = document.getElementById('loading-company-name');
+  if(companyEl) companyEl.textContent = companyName + ' の診断を実行中';
+
+  showScreen('screen-loading');
+  updateLoadingStep(0);
+
+  let stepIndex = 0;
+  const textInterval = setInterval(() => {
+    stepIndex = Math.min(stepIndex + 1, loadingSteps.length - 1);
+    updateLoadingStep(stepIndex);
+  }, 30000); // 30秒ごとにステップ進行（実処理時間に合わせて）
+
+  try {
+    const postRes = await fetch(N8N_POST_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        data: {
+          fields: [
+            { label: "企業名", value: companyName },
+            { label: "ヒアリング内容", value: hearingData }
+          ]
+        }
+      })
+    });
+    
+    if (!postRes.ok) throw new Error("POST request failed");
+    const postResult = await postRes.json();
+    
+    if (postResult.jobId) {
+      pollStatus(postResult.jobId, textInterval);
+    } else {
+      throw new Error("Job ID not received");
+    }
+  } catch (error) {
+    console.error(error);
+    clearInterval(textInterval);
+    alert("通信エラーが発生しました。CORS設定やURLが正しいか確認してください。");
+    document.getElementById('btn-submit').disabled = false;
+    showScreen('screen-input');
+  }
+}
+
+function pollStatus(jobId, textIntervalId) {
+  const pollInterval = setInterval(async () => {
+    try {
+      const getRes = await fetch(`${N8N_GET_URL}?jobId=${jobId}`);
+      if (!getRes.ok) throw new Error("GET request failed");
+      
+      const result = await getRes.json();
+      
+      if (result.status === "completed" && result.data) {
+        clearInterval(pollInterval);
+        clearInterval(textIntervalId);
+
+        // プログレス完了演出
+        const progressEl = document.getElementById('loading-progress');
+        if(progressEl) progressEl.style.width = '100%';
+        updateLoadingStep(4);
+
+        setTimeout(() => {
+          // Structured Output Parserのネスト構造を解決
+          const raw = result.data;
+          const reportData =
+            raw?.__structured__output?.__structured__output__object ||
+            raw?.output ||
+            raw;
+          renderAll(reportData);
+          showScreen('screen-dashboard');
+          document.querySelectorAll('.section').forEach(s => observer.observe(s));
+        }, 600);
+        
+      } else if (result.status === "error") {
+        clearInterval(pollInterval);
+        clearInterval(textIntervalId);
+        alert("AIの分析中にエラーが発生しました。");
+        document.getElementById('btn-submit').disabled = false;
+        showScreen('screen-input');
+      }
+      // status が 'processing' の場合は何もしない（次の10秒を待つ）
+    } catch (error) {
+      console.error("Polling error:", error);
+    }
+  }, 10000); // 10秒に1回確認
+}
+
+// ============================================================
+// ダッシュボード描画処理 (元のスクリプト)
+// ============================================================
+function yen(n) { return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY', maximumFractionDigits: 0 }).format(n); }
+function starHtml(activeCount, max = 3) { return Array.from({ length: max }, (_, i) => `<span class="star ${i < activeCount ? 'star-active' : 'star-inactive'}">★</span>`).join(''); }
+function outcomeChips(outcomes) { return (outcomes || []).map(o => `<span class="outcome-chip">${o}</span>`).join(''); }
+
+function renderAll(data) {
+  // --- Header & Hero ---
+  document.getElementById('hero-company').textContent = data.companyName || '企業名不明';
+  const eyebrow = document.getElementById('hero-eyebrow');
+  if(eyebrow) eyebrow.textContent = (data.companyName || '') + ' ／ AI活用診断レポート';
+  document.getElementById('industry-desc').innerHTML = data.industry?.descHtml || '業種情報がありません。';
+  document.getElementById('stat-risk').textContent = data.hero?.competitorAdoptionRate || '--';
+  document.getElementById('exec-overall').textContent = (data.scores?.overall || '--') + '点';
+  
+  // --- Section 1: Problems ---
+  if(data.problems && data.problems.items) {
+    let sumHours = 0;
+    document.getElementById('problems-container').innerHTML = data.problems.items.map((p, idx) => {
+      sumHours += (Number(p.lossHours) || 0);
+      return `
+        <div class="problem-item">
+          <div class="problem-header">
+            <div class="problem-num-badge">${idx + 1}</div>
+            <div class="problem-title">${p.title}</div>
+          </div>
+          <div class="problem-footer">
+            <span class="frequency-label">頻度: ${p.frequency || '高'}</span>
+            <div class="loss-badge">推定ロス <span class="loss-num">${p.lossHours || 0}h</span> /月</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+    const total = sumHours * 5 * 3000;
+    document.getElementById('exec-loss').textContent = yen(total);
+    document.getElementById('total-loss-amount').textContent = yen(total);
+    // P1: ヒーロー損失額
+    const heroLoss = document.getElementById('hero-loss-value');
+    if(heroLoss) heroLoss.textContent = yen(total);
+  }
+
+  // --- Section 2: Scores ---
+  if(data.scores) {
+    const overall = data.scores.overall || 0;
+    document.getElementById('overall-num').textContent = overall;
+    const ring = document.getElementById('main-ring');
+    if(ring) ring.style.strokeDashoffset = 283 - (283 * overall / 100);
+
+    // P1: スコアゾーン判定でphase-badgeを動的設定
+    const phaseBadge = document.getElementById('phase-badge');
+    if(phaseBadge) {
+      if(overall <= 50) {
+        phaseBadge.dataset.zone = 'danger';
+        phaseBadge.textContent = '緊急対応が必要な段階';
+      } else if(overall <= 70) {
+        phaseBadge.dataset.zone = 'warning';
+        phaseBadge.textContent = '「今すぐ始める必要がある」段階';
+      } else {
+        phaseBadge.dataset.zone = 'success';
+        phaseBadge.textContent = '先進的な活用段階';
+      }
+    }
+
+    if(data.scores.items) {
+      document.getElementById('score-cards-container').innerHTML = data.scores.items.map((s, i) => {
+        const score = s.score || 0;
+        let stateIcon = '●', stateLabel = '標準', stateClass = 'blue';
+        if(score >= 80)      { stateIcon = '▲'; stateLabel = '高';   stateClass = 'blue'; }
+        else if(score >= 60) { stateIcon = '●'; stateLabel = '中';   stateClass = 'blue'; }
+        else if(score >= 40) { stateIcon = '▼'; stateLabel = '低';   stateClass = 'amber'; }
+        else                 { stateIcon = '✕'; stateLabel = '要改善'; stateClass = 'red'; }
+        return `
+          <div class="score-item">
+            <div class="score-item-header">
+              <span class="score-label">${s.label || '指標'}</span>
+              <span class="score-value ${stateClass}" aria-label="${s.label}：${score}点（${stateLabel}）">
+                <span aria-hidden="true" style="font-size:0.875rem;margin-right:0.25rem;">${stateIcon}</span>${score}
+                <span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);margin-left:0.25rem;">${stateLabel}</span>
+              </span>
+            </div>
+            <div class="score-bar-wrap" role="progressbar" aria-valuenow="${score}" aria-valuemin="0" aria-valuemax="100" aria-label="${s.label || '指標'}：${score}点（${stateLabel}）">
+              <div class="score-bar bar-${stateClass}" style="width:${score}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    if(data.scores.comparison) {
+      document.getElementById('comp-insight').textContent = data.scores.comparison.insight || '';
+      document.getElementById('comparison-bars').innerHTML = (data.scores.comparison.axes || []).map(axis => `
+        <div class="comp-row">
+          <div class="comp-row-label">
+            <span class="comp-name">${axis.label}</span>
+            <span class="comp-scores"><span class="comp-score-you">${axis.you}</span><span class="comp-score-avg">/ 平均 ${axis.avg}</span></span>
+          </div>
+          <div class="comp-bars">
+            <div class="comp-bar-you blue" style="width:${axis.you}%"></div>
+            <div class="comp-bar-avg-line" style="left:${axis.avg}%"></div>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  // --- Section 業界動向 ---
+  if(data.industryTrend) {
+    const t = data.industryTrend;
+    document.getElementById('trend-summary').textContent = t.summary || '';
+    document.getElementById('trend-adoption').textContent = t.adoptionGrowth || '';
+    document.getElementById('trend-urgency').textContent = t.urgencyMessage || '';
+
+    if(t.cases) {
+      document.getElementById('trend-cases').innerHTML = t.cases.map(c => `
+        <div style="background:var(--surface);border-radius:0.625rem;padding:1.5rem 1.75rem;box-shadow:var(--shadow-sm);">
+          <div style="font-size:0.9375rem;font-weight:700;color:var(--blue-900);margin-bottom:0.375rem;">${c.company}</div>
+          <div style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.6;">${c.useCase}</div>
+          ${(c.metrics||[]).map(m => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-top:1px solid var(--border);">
+              <span style="font-size:0.875rem;color:var(--text-muted);">${m.label}</span>
+              <span style="font-size:1rem;font-weight:700;color:var(--teal-700);">${m.value}</span>
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+    }
+  }
+
+  // --- Section 3: Priority Matrix ---
+  if(data.solutions && data.solutions.items) {
+    const containers = { quickwin: '', strategic: '', fillin: '', defer: '' };
+    data.solutions.items.forEach(s => {
+      const q = s.quadrant || 'fillin';
+      if(containers[q] !== undefined) {
+        containers[q] += `
+          <div class="pm-solution">
+            <div class="pm-solution-title">${s.shortTitle || s.title}</div>
+            <div class="pm-solution-meta">効果: ${s.impact||0} / 実行性: ${s.feasibility||0}</div>
+          </div>
+        `;
+      }
+    });
+    ['quickwin', 'strategic', 'fillin', 'defer'].forEach(q => {
+      const el = document.getElementById('pm-' + q);
+      if(el) el.innerHTML = containers[q];
+    });
+  }
+
+  // --- Section 4: Network ---
+  if(data.capabilityNetwork) {
+    document.getElementById('network-core-insight').textContent = data.capabilityNetwork.coreInsight || '';
+    document.getElementById('network-moat-insight').innerHTML = data.capabilityNetwork.moatInsight || '';
+    document.getElementById('loop-cards').style.display = 'none';
+
+    const cn = data.capabilityNetwork;
+    const caps = cn.capabilities || [];
+    const svg = document.getElementById('capability-svg');
+    if(!caps.length) { svg.innerHTML = ''; return; }
+
+    const W = 760, PAD = 32;
+    const N = caps.length;
+    const CAP_W = Math.min(132, Math.floor((W - PAD * 2 - (N - 1) * 10) / N));
+    const CAP_GAP = N > 1 ? Math.floor((W - PAD * 2 - CAP_W * N) / (N - 1)) : 0;
+
+    const Y_VAL = 20, Y_VAL_H = 52;
+    const Y_CAP_H = 56, Y_ENB_H = 42, Y_ENB_GAP = 6;
+
+    const maxEnb = Math.max(...caps.map(c => (c.enablers||[]).length));
+    const catColor = {
+      'Knowledge':    { fill:'#eff6ff', stroke:'#1d4ed8', text:'#1e3a8a' },
+      'Organization': { fill:'#f0fdf4', stroke:'#16a34a', text:'#15803d' },
+      'Process':      { fill:'#fffbeb', stroke:'#d97706', text:'#b45309' },
+      'Technology':   { fill:'#fdf4ff', stroke:'#9333ea', text:'#7e22ce' }
+    };
+
+    function splitText(str, chars) {
+      if(!str) return [];
+      const lines = [];
+      for(let i = 0; i < str.length; i += chars) lines.push(str.slice(i, i + chars));
+      return lines.slice(0, 3);
+    }
+
+    function multilineText(str, x, baseY, lineH, anchor, fill, size, weight) {
+      const chars = Math.floor(CAP_W / (size * 0.72));
+      const lines = splitText(str, Math.max(chars, 4));
+      return lines.map((line, i) =>
+        `<text x="${x}" y="${baseY + i * lineH}" text-anchor="${anchor}" fill="${fill}" font-size="${size}" font-weight="${weight||400}" font-family="'Noto Sans JP',sans-serif">${line}</text>`
+      ).join('');
+    }
+
+    // Value帯の高さをテキスト量に応じて計算
+    const valueText = cn.value || '戦略目標とする価値';
+    const vChars = Math.floor((W - PAD * 2 - 120) / 13);
+    const vLines = splitText(valueText, Math.max(vChars, 10));
+    const actualValH = Math.max(Y_VAL_H, vLines.length * 16 + 24);
+
+    const Y_CAP2 = Y_VAL + actualValH + 20;
+    const Y_ENB2 = Y_CAP2 + Y_CAP_H + 14;
+    const Y_LEG = Y_ENB2 + maxEnb * (Y_ENB_H + Y_ENB_GAP) + 14;
+    const Y_TOTAL = Y_LEG + 28;
+
+    svg.setAttribute('viewBox', `0 0 ${W} ${Y_TOTAL}`);
+
+    let html = `<defs>
+      <marker id="sarr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+        <path d="M2 1L8 5L2 9" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </marker>
+    </defs>`;
+
+    // Value層
+    html += `<rect x="${PAD}" y="${Y_VAL}" width="${W - PAD*2}" height="${actualValH}" rx="8" fill="#1e3a8a" stroke="#1d4ed8" stroke-width="1"/>`;
+    html += `<text x="${PAD + 12}" y="${Y_VAL + 15}" fill="rgba(255,255,255,0.65)" font-size="10" font-weight="700" font-family="'Noto Sans JP',sans-serif">Value｜戦略目標とする価値</text>`;
+    vLines.forEach((line, i) => {
+      html += `<text x="${W/2}" y="${Y_VAL + 30 + i * 16}" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="700" font-family="'Noto Sans JP',sans-serif">${line}</text>`;
+    });
+
+    caps.forEach((cap, i) => {
+      const bx = PAD + i * (CAP_W + CAP_GAP);
+      const mx = bx + CAP_W / 2;
+      const enablers = cap.enablers || [];
+
+      // Value → Capability 矢印
+      html += `<line x1="${mx}" y1="${Y_VAL + actualValH}" x2="${mx}" y2="${Y_CAP2}" stroke="#94a3b8" stroke-width="1" marker-end="url(#sarr)"/>`;
+
+      // Capabilityボックス
+      html += `<rect x="${bx}" y="${Y_CAP2}" width="${CAP_W}" height="${Y_CAP_H}" rx="6" fill="#1d4ed8" stroke="#1e3a8a" stroke-width="1"/>`;
+      html += `<text x="${mx}" y="${Y_CAP2 + 14}" text-anchor="middle" fill="rgba(255,255,255,0.65)" font-size="9" font-family="'Noto Sans JP',sans-serif">Capability</text>`;
+      html += multilineText(cap.title||'', mx, Y_CAP2 + 28, 14, 'middle', '#ffffff', 11, 700);
+
+      // Enablerボックス
+      enablers.forEach((enb, j) => {
+        const ey = Y_ENB2 + j * (Y_ENB_H + Y_ENB_GAP);
+        const col = catColor[enb.category] || catColor['Technology'];
+        html += `<line x1="${mx}" y1="${j===0 ? Y_CAP2+Y_CAP_H : ey}" x2="${mx}" y2="${ey+2}" stroke="#cbd5e1" stroke-width="1" marker-end="url(#sarr)"/>`;
+        html += `<rect x="${bx}" y="${ey+2}" width="${CAP_W}" height="${Y_ENB_H}" rx="4" fill="${col.fill}" stroke="${col.stroke}" stroke-width="1"/>`;
+        html += `<text x="${mx}" y="${ey+13}" text-anchor="middle" fill="${col.stroke}" font-size="8" font-weight="700" font-family="'Noto Sans JP',sans-serif">${enb.category}</text>`;
+        html += multilineText(enb.title||'', mx, ey+24, 12, 'middle', col.text, 10, 700);
+      });
+    });
+
+    // 凡例
+    ['Knowledge','Organization','Process','Technology'].forEach((cat, i) => {
+      const col = catColor[cat];
+      const lx = PAD + i * 168;
+      html += `<rect x="${lx}" y="${Y_LEG}" width="11" height="11" rx="2" fill="${col.fill}" stroke="${col.stroke}" stroke-width="1"/>`;
+      html += `<text x="${lx+15}" y="${Y_LEG+9}" fill="#64748b" font-size="10" font-family="'Noto Sans JP',sans-serif">${cat}</text>`;
+    });
+
+    svg.innerHTML = html;
+  }
+
+  // --- Section 5: Solutions ---
+  if(data.solutions && data.solutions.items) {
+    document.getElementById('solutions-container').innerHTML = data.solutions.items.map(s => {
+      const badgeMap = {
+        quickwin:  { cls: 'badge--immediate', label: '⚡ 今すぐ着手' },
+        strategic: { cls: 'badge--strategic', label: '🎯 準備後着手' },
+        fillin:    { cls: 'badge--fillin',    label: '📋 余力があれば' },
+        defer:     { cls: 'badge--defer',     label: '⏸ 後回し' }
+      };
+      const badge = badgeMap[s.quadrant] || badgeMap['fillin'];
+      return `
+        <div class="solution-item" data-priority="${s.quadrant || ''}">
+          <span class="measure-badge ${badge.cls}">${badge.label}</span>
+          <div class="solution-header">
+            <div class="solution-title">${s.title}</div>
+          </div>
+          <div class="solution-desc">${s.desc}</div>
+        </div>
+      `;
+    }).join('');
+    
+    // Chart.js
+    if(data.solutions.savingsBarChart) {
+      const ctx = document.getElementById('barChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.solutions.savingsBarChart.labels || ['A','B','C'],
+          datasets: [
+            { label: '現状', data: data.solutions.savingsBarChart.current || [0,0,0], backgroundColor: 'rgba(203,213,225,0.55)' },
+            { label: '導入後', data: data.solutions.savingsBarChart.after || [0,0,0], backgroundColor: 'rgba(15,118,110,0.20)' }
+          ]
+        }
+      });
+    }
+  }
+
+  // --- Section 7: Roadmap ---
+  if(data.roadmap && data.roadmap.phases) {
+    document.getElementById('roadmap-phases').innerHTML = data.roadmap.phases.map(p => `
+      <div class="roadmap-phase" style="border-left:4px solid var(--blue-900); background:var(--blue-50);">
+        <div class="roadmap-phase-header"><span class="roadmap-phase-badge" style="background:#fff;">${p.phase}</span><span class="roadmap-period">${p.period}</span></div>
+        <div class="roadmap-phase-title">${p.title}</div>
+        <ul class="roadmap-actions">${(p.actions||[]).map(a => `<li class="roadmap-action">${a}</li>`).join('')}</ul>
+      </div>
+    `).join('');
+  }
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) entry.target.classList.add('visible');
+  });
+}, { threshold: 0.08 });
+
+const d = new Date();
+document.getElementById('report-date').textContent = `診断日: ${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+
+// P2: スクロール追従ナビ アクティブ制御
+const navLinks = document.querySelectorAll('.section-nav a');
+const sectionIds = ['sec1','sec-trend','sec2','sec3','sec5','sec4','sec7'];
+const sectionEls = sectionIds.map(id => document.getElementById(id)).filter(Boolean);
+
+const navObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if(entry.isIntersecting) {
+      navLinks.forEach(a => a.classList.remove('active'));
+      const activeLink = document.querySelector(`.section-nav a[href="#${entry.target.id}"]`);
+      if(activeLink) activeLink.classList.add('active');
+    }
+  });
+}, { threshold: 0.3 });
+
+sectionEls.forEach(el => navObserver.observe(el));
+
+// P2: 読了プログレスバー
+const progressBar = document.getElementById('reading-progress-bar');
+const progressWrap = progressBar?.closest('[role="progressbar"]');
+window.addEventListener('scroll', () => {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? Math.round((scrollTop / docHeight) * 100) : 0;
+  if(progressBar) progressBar.style.width = pct + '%';
+  if(progressWrap) progressWrap.setAttribute('aria-valuenow', pct);
+}, { passive: true });
+</script>
+</body>
+</html>
